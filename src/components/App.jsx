@@ -3,74 +3,65 @@ import Searchbar from './Searchbar';
 import Button from './Button';
 import Loader from './Loader';
 import Modal from './Modal';
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { serviceImages } from 'services/api';
-class App extends Component {
-  state = {
-    loadMore: false,
-    loading: false,
-    showModal: false,
-    query: '',
-    page: 1,
-    images: [],
-    currentImage: {},
+
+import React from 'react';
+
+const App = () => {
+  const [loadMore, setLoadMore] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [images, setImages] = useState([]);
+  const [currentImage, setCurrentImage] = useState({});
+
+  useEffect(() => {
+    const getImages = async (q, p) => {
+      try {
+        setLoading(true);
+        setLoadMore(false);
+        const { data } = await serviceImages(q, p);
+        // console.log(q, p);
+        setImages(prev => [...prev, ...data.hits]);
+        setLoadMore(page < Math.ceil(data.totalHits / 12));
+      } catch (err) {
+        console.log(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (query) getImages(query, page);
+  }, [page, query]);
+
+  const getCurrentImage = (img, text) => {
+    setCurrentImage({ image: img, text: text });
+    setShowModal(true);
+  };
+  const toggleModal = () => {
+    setShowModal(prev => !prev);
+  };
+  const handleSubmit = query => {
+    setQuery(query);
+    setPage(1);
+    setImages([]);
+  };
+  const pageIncrement = () => {
+    setPage(prev => prev + 1);
   };
 
-  componentDidUpdate(_, prevState) {
-    const { query, page } = this.state;
-    if (page !== prevState.page || query !== prevState.query) {
-      this.getImages(query, page);
-    }
-  }
-  getCurrentImage = (img, text) => {
-    this.setState({
-      currentImage: { image: img, text: text },
-      showModal: true,
-    });
-  };
-  toggleModal = () => {
-    this.setState(({ showModal }) => ({
-      showModal: !showModal,
-    }));
-  };
-  handleSubmit = query => {
-    this.setState({ query: query, page: 1, images: [] });
-  };
-  pageIncrement = () => {
-    this.setState(prev => ({ page: prev.page + 1 }));
-  };
-  getImages = async (q, p) => {
-    try {
-      this.setState({ loading: true, loadMore: false });
-      const { data } = await serviceImages(q, p);
-      // console.log(q, p);
-      this.setState(prevState => ({
-        images: [...prevState.images, ...data.hits],
-        loadMore: this.state.page < Math.ceil(data.totalHits / 12),
-      }));
-    } catch (err) {
-      console.log(err.message);
-    } finally {
-      this.setState({ loading: false });
-    }
-  };
+  return (
+    <>
+      <Searchbar handleSubmit={handleSubmit} />
+      <ImageGallery images={images} getCurrentImage={getCurrentImage} />
+      {loadMore && <Button pageIncrement={pageIncrement} />}
+      {loading && <Loader />}
+      {showModal && (
+        <Modal toggleModal={toggleModal} currentImage={currentImage} />
+      )}
+    </>
+  );
+};
 
-  render() {
-    const { loadMore, loading, showModal, images, currentImage } = this.state;
-    return (
-      <>
-        <Searchbar handleSubmit={this.handleSubmit} />
-        <ImageGallery images={images} getCurrentImage={this.getCurrentImage} />
-        {/* {images.length === 0 && (
-          <h1 style={{ textAlign: 'center', marginTop: 50 }}>No images here</h1>
-        )} */}
-        {loadMore && <Button pageIncrement={this.pageIncrement} />}
-        {loading && <Loader />}
-        {showModal && (
-          <Modal toggleModal={this.toggleModal} currentImage={currentImage} />
-        )}
-      </>
-    );
-  }
-}
 export default App;
